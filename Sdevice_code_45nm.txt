@@ -1,0 +1,75 @@
+File {
+Grid = "n@node|-1@_msh.tdr"
+Plot = "n@node@_des.tdr"
+Current = "n@node@_des.plt"
+Output = "n@node@_des.log"
+}
+
+Electrode {
+{ Name="source" Voltage=0.0 }
+{ Name="drain" Voltage=0.0 }
+{ Name="gate" Voltage=0.0 }
+{ Name="substrate" Voltage=0.0 }
+}
+
+Physics {
+Mobility( DopingDep HighFieldSaturation Enormal )
+Recombination( SRH(DopingDep) )
+}
+
+Plot {
+eDensity hDensity
+eCurrent hCurrent
+ElectricField
+Potential
+Doping
+}
+
+Math {
+Extrapolate
+Derivatives
+RelErrControl
+Digits=5
+Iterations=20
+Notdamped=50
+Method=ParDiSo
+}
+
+Solve {
+* 1. Equilibrium
+Coupled { Poisson }
+
+* 2. Vds = 0.05 V (linear)
+Quasistationary (
+InitialStep=0.1 MaxStep=0.5 MinStep=1e-6
+Goal { Name="drain" Voltage=0.05 }
+) { Coupled { Poisson Electron Hole } }
+
+* 3. Id-Vgs linear
+NewCurrentFile="IdVgs_lin_"
+Quasistationary (
+InitialStep=0.02 MaxStep=0.05 MinStep=1e-6
+Goal { Name="gate" Voltage=1.2 }
+) { Coupled { Poisson Electron Hole } }
+
+* 4. Return gate to 0 V
+NewCurrentFile="reset_"
+Quasistationary (
+InitialStep=0.05 MaxStep=0.2 MinStep=1e-6
+Goal { Name="gate" Voltage=0.0 }
+) { Coupled { Poisson Electron Hole } }
+
+* 5. Vds = 1.0 V (saturation, for DIBL)
+NewCurrentFile="ramp_vd_"
+Quasistationary (
+InitialStep=0.1 MaxStep=0.5 MinStep=1e-6
+Goal { Name="drain" Voltage=1.0 }
+) { Coupled { Poisson Electron Hole } }
+
+* 6. Id-Vgs saturation
+NewCurrentFile="IdVgs_sat_"
+Quasistationary (
+InitialStep=0.02 MaxStep=0.05 MinStep=1e-6
+Goal { Name="gate" Voltage=1.2 }
+) { Coupled { Poisson Electron Hole } }
+}

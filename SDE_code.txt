@@ -1,0 +1,79 @@
+(sde:clear)
+
+(define half_L (/ @Lgate@ 2.0))
+(define W 0.1)
+(define H_sub 0.3)
+(define Tox 0.003)
+(define H_poly 0.05)
+(define SD_depth 0.02)
+
+; Contact sets (must come first)
+(sdegeo:define-contact-set "substrate" 4.0 (color:rgb 0 0 1) "##")
+(sdegeo:define-contact-set "gate" 4.0 (color:rgb 1 0 0) "##")
+(sdegeo:define-contact-set "source" 4.0 (color:rgb 0 1 0) "##")
+(sdegeo:define-contact-set "drain" 4.0 (color:rgb 1 1 0) "##")
+
+; Substrate
+(sdegeo:create-cuboid
+(position -0.5 (- 0.0 (/ W 2.0)) (- 0.0 H_sub))
+(position 0.5 (/ W 2.0) 0.0)
+"Silicon" "Substrate")
+
+; N+ source/drain silicon (replaces overlapping substrate)
+(sdegeo:create-cuboid
+(position -0.5 (- 0.0 (/ W 2.0)) (- 0.0 SD_depth))
+(position (- 0.0 half_L) (/ W 2.0) 0.0)
+"Silicon" "SourceSi")
+(sdegeo:create-cuboid
+(position half_L (- 0.0 (/ W 2.0)) (- 0.0 SD_depth))
+(position 0.5 (/ W 2.0) 0.0)
+"Silicon" "DrainSi")
+
+; Gate oxide and poly
+(sdegeo:create-cuboid
+(position (- 0.0 half_L) (- 0.0 (/ W 2.0)) 0.0)
+(position half_L (/ W 2.0) Tox)
+"SiO2" "GateOxide")
+(sdegeo:create-cuboid
+(position (- 0.0 half_L) (- 0.0 (/ W 2.0)) Tox)
+(position half_L (/ W 2.0) (+ Tox H_poly))
+"PolySilicon" "PolyGate")
+
+; Source/drain metal
+(sdegeo:create-cuboid
+(position -0.5 (- 0.0 (/ W 2.0)) 0.0)
+(position (- 0.0 (+ half_L 0.07)) (/ W 2.0) 0.05)
+"Aluminum" "SourceMetal")
+(sdegeo:create-cuboid
+(position (+ half_L 0.07) (- 0.0 (/ W 2.0)) 0.0)
+(position 0.5 (/ W 2.0) 0.05)
+"Aluminum" "DrainMetal")
+
+; Contacts
+(sdegeo:define-3d-contact
+(list (car (find-face-id (position 0 0 (+ Tox H_poly))))) "gate")
+(sdegeo:define-3d-contact
+(list (car (find-face-id (position 0 0 (- 0.0 H_sub))))) "substrate")
+(sdegeo:set-contact (find-body-id (position -0.45 0 0.025)) "source" "remove")
+(sdegeo:set-contact (find-body-id (position 0.45 0 0.025)) "drain" "remove")
+
+; Doping
+(sdedr:define-constant-profile "Const.Bulk" "BoronActiveConcentration" 2e18)
+(sdedr:define-constant-profile-region "Const.Bulk" "Const.Bulk" "Substrate")
+(sdedr:define-constant-profile "Const.SD" "ArsenicActiveConcentration" 1e20)
+(sdedr:define-constant-profile-region "Const.Src" "Const.SD" "SourceSi")
+(sdedr:define-constant-profile-region "Const.Drn" "Const.SD" "DrainSi")
+(sdedr:define-constant-profile "Const.Poly" "ArsenicActiveConcentration" 1e20)
+(sdedr:define-constant-profile-region "Const.Poly" "Const.Poly" "PolyGate")
+
+; Meshing
+(sdedr:define-refinement-size "Ref.Global" 0.05 0.02 0.02 0.01 0.005 0.005)
+(sdedr:define-refinement-region "Pl.Sub" "Ref.Global" "Substrate")
+(sdedr:define-refinement-region "Pl.Src" "Ref.Global" "SourceSi")
+(sdedr:define-refinement-region "Pl.Drn" "Ref.Global" "DrainSi")
+(sdedr:define-refeval-window "Win.Channel" "Cuboid"
+(position (- 0.0 half_L) (- 0.0 (/ W 2.0)) -0.02)
+(position half_L (/ W 2.0) 0.01))
+(sdedr:define-refinement-size "Ref.Channel" 0.01 0.01 0.002 0.005 0.005 0.001)
+(sdedr:define-refinement-placement "Pl.Channel" "Ref.Channel" "Win.Channel")
+(sde:build-mesh "snmesh" "" "n@node@_msh")
